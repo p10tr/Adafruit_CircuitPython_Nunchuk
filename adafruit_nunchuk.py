@@ -56,6 +56,7 @@ class Nunchuk:
     _Joystick = namedtuple("Joystick", ("x", "y"))
     _Buttons = namedtuple("Buttons", ("C", "Z"))
     _Acceleration = namedtuple("Acceleration", ("x", "y", "z"))
+    _Guitar = namedtuple("Guitar", ("sX", "sY", "TB", "TW", "STRUM", "Bplus", "Bminus", "BG", "BR", "BY", "BB", "BO"))
 
     def __init__(
         self, i2c: I2C, address: int = 0x52, i2c_read_delay: float = 0.002
@@ -86,6 +87,7 @@ class Nunchuk:
             self._joystick(do_read=False),
             self._buttons(do_read=False),
             self._acceleration(do_read=False),
+            self._guitar(do_read=False),
         )
 
     @property
@@ -102,6 +104,11 @@ class Nunchuk:
     def acceleration(self) -> _Acceleration:
         """The current accelerometer reading."""
         return self._acceleration()
+
+    @property
+    def guitar(self) -> _Guitar:
+        """The current pressed state of gamepad."""
+        return self._guitar()
 
     def _joystick(self, do_read: bool = True) -> _Joystick:
         if do_read:
@@ -124,6 +131,26 @@ class Nunchuk:
             ((self.buffer[5] & 0x0C) >> 2) | (self.buffer[4] << 2),  # az
         )
 
+    def _guitar(self, do_read: bool = True) -> _Guitar:
+        if do_read:
+            self._read_data()
+
+        return self._Guitar(
+            (self.buffer[0] - 192),  # sX
+            (self.buffer[1] - 192),  # sY
+            (self.buffer[2]),        # TB
+            (self.buffer[3] - 239),  # TW
+            ((self.buffer[4] & 64) == 0 ? -1 : ((self.buffer[5] & 1) == 0 ? 1 : 0)), # STRUM
+            ((self.buffer[4] & 4) == 0 ? 1 : 0), # Bplus
+            ((self.buffer[4] & 16) == 0 ? 1 : 0), # Bminus
+            ((self.buffer[5] & 16) == 0 ? 1 : 0 ), # BG
+            ((self.buffer[5] & 64) == 0 ? 1 : 0), # BR
+            ((self.buffer[5] & 8) == 0 ? 1 : 0),  # BY
+            ((self.buffer[5] & 32) == 0 ? 1 : 0), # BB
+            ((self.buffer[5] & 128) == 0 ? 1 : 0) # B0  
+        )
+
+  
     def _read_data(self) -> bytearray:
         return self._read_register(b"\x00")
 
